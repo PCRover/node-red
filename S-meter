@@ -1,0 +1,205 @@
+[
+    {
+        "id": "3f92b86b.bcb3d8",
+        "type": "udp in",
+        "z": "9bd1b4ef.461b08",
+        "name": "FRStack 12270",
+        "iface": "",
+        "port": "12270",
+        "ipv": "udp4",
+        "multicast": "false",
+        "group": "",
+        "datatype": "utf8",
+        "x": 140,
+        "y": 180,
+        "wires": [
+            [
+                "db6390fd.a7eae"
+            ]
+        ]
+    },
+    {
+        "id": "db6390fd.a7eae",
+        "type": "json",
+        "z": "9bd1b4ef.461b08",
+        "name": "",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 290,
+        "y": 180,
+        "wires": [
+            [
+                "9d0e9af4.6271b8"
+            ]
+        ]
+    },
+    {
+        "id": "9d0e9af4.6271b8",
+        "type": "json",
+        "z": "9bd1b4ef.461b08",
+        "name": "",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 410,
+        "y": 180,
+        "wires": [
+            [
+                "18cf1abe.2b9825"
+            ]
+        ]
+    },
+    {
+        "id": "18cf1abe.2b9825",
+        "type": "function",
+        "z": "9bd1b4ef.461b08",
+        "name": "S-Meter",
+        "func": "if (msg.payload[\"machinename\"] === undefined){\n    return;\n}\nmeter_r = global.get('meter_r')||\"?\";\nsmeter = msg.payload.smeters[meter_r]\nif(smeter === undefined){\n    return;\n}\npos = smeter.indexOf(\",\");\nlen = smeter.length\ndb = parseFloat(smeter.slice(0,pos));\ndb = db.toPrecision(4);\nsmeter = smeter.slice(pos+1,len)\nmsg.payload = db \nmsg1 = {}\nmsg1.payload = smeter;\nmsg1.unit = smeter;\nif(db > -54){\n    msg1.color = \"FF0000\"\n}else if(db > -63){\n    msg1.color = \"FF6666\"    \n}else if(db > -74){\n    msg1.color = \"FFff66\"\n}else{\n    msg1.color = \"66FF66\"\n}\nreturn [msg,msg1];",
+        "outputs": 2,
+        "noerr": 0,
+        "x": 560,
+        "y": 180,
+        "wires": [
+            [
+                "68307928.778668",
+                "b302f86d.d37288"
+            ],
+            [
+                "8830e952.331ec8"
+            ]
+        ]
+    },
+    {
+        "id": "b302f86d.d37288",
+        "type": "function",
+        "z": "9bd1b4ef.461b08",
+        "name": "Invert Readings",
+        "func": "msg.db = msg.payload\nmsg.payload = 138 + parseFloat(msg.payload) //138 for 20 seg\nmsg.payload = parseFloat(msg.payload) / 3.2  // 5.1 for 20seg\nmsg.sunit = global.get('s_unit');\nmsg.color = \"#66ff66\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 800,
+        "y": 120,
+        "wires": [
+            [
+                "48dd27c6.d84488"
+            ]
+        ]
+    },
+    {
+        "id": "48dd27c6.d84488",
+        "type": "ui_template",
+        "z": "9bd1b4ef.461b08",
+        "group": "c0279e79.7a66d",
+        "name": "LED Bar-graph Display",
+        "order": 1,
+        "width": "9",
+        "height": "2",
+        "format": "<script>\n(function($scope) {\n    \nlet amount = 28//amount of LEDs\nlet label = \"LED bar Graph\"\n \nlet on1 = \"#00FF00\"\nlet off1 = \"#006600\"\nlet on2 = \"#FFFF00\"\nlet off2 = \"#666600\"\nlet on3 = \"#FF0000\"\nlet off3 = \"#660000\"\n\nlet threshold1 = 14/24 // 10/20 the limit between color 1 and color 2\nlet threshold2 = 18/24 // 15/20  the limit between color 2 and color 3\n\nvar bargraph = new Array(amount).fill(\"#000000\")\n\n$scope.$watch('msg', function() {\n    \nif ($scope.msg){\n    if ($scope.msg.hasOwnProperty('payload') && typeof $scope.msg.payload == \"number\"){\n        $scope.msg.label = label\n        $scope.msg.payload = parseInt($scope.msg.payload)\n    \n        if ($scope.msg.payload > amount){\n            $scope.msg.payload = amount\n        }\n        for (var i = 0; i < $scope.msg.payload; i++){\n            if (i < amount*threshold1){\n                bargraph[i] = on1\n            }else if (i < amount*threshold2){\n                bargraph[i] = on2\n            }else{\n                bargraph[i] = on3\n            }\n        }\n        for (var i = $scope.msg.payload; i < amount; i++){\n            if (i < amount*threshold1){\n                bargraph[i] = off1\n            }else if (i < amount*threshold2){\n                bargraph[i] = off2\n            }else{\n                bargraph[i] = off3\n            }\n        }\n        $scope.msg.bargraph = bargraph\n    }else if (typeof $scope.msg.payload !== \"number\"){\n        $scope.msg = {\"bargraph\":[...bargraph], \"payload\": 0, \"label\":\"Led Bar Graph\"}\n    }   \n}else{\n    $scope.msg = {\"bargraph\":[...bargraph], \"payload\": 0, \"label\":\"Led Bar Graph\"}\n}\n    });\n})(scope);\n\n</script>\n\n<style>\n.bargraph {\n    float: left;\n    padding: 1px;\n    width: 6px;\n    height: 12px;\n    margin: 4px 2px 8px 0px;\n    border-radius: 10%;\n}\n</style>\n\n<div>&nbsp;&nbsp;<font size = \"4\" color = \"{{msg.color}}\">{{msg.sunit}}</font>\n<span ng-repeat=\"led in msg.bargraph track by $index\">\n    <span class=\"bargraph\" style=\"background-color: {{led}}; box: black 0 -1px 1px 0px, inset black 0 -1px 4px, {{led}} 0 3px 15px;\"></span>\n</span>\n</div>\n<div>\n<table width = \"100%\">\n   <tr><td>S</td><td>S1</td><td>S3</td><td>S5</td><td>S7</td><td>S9</td><td>+20</td><td>&nbsp;</td></tr>\n</table>\n</div>",
+        "storeOutMessages": false,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 1060,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "68307928.778668",
+        "type": "ui_level",
+        "z": "9bd1b4ef.461b08",
+        "group": "b6e499de.626a18",
+        "order": 5,
+        "width": "2",
+        "height": "7",
+        "name": "",
+        "label": "",
+        "colorHi": "#ff0000",
+        "colorWarn": "#f0f35e",
+        "colorNormal": "#23e723",
+        "colorOff": "#595959",
+        "min": "-135",
+        "max": "-40",
+        "segWarn": "-85",
+        "segHigh": "-68",
+        "unit": "",
+        "layout": "sv",
+        "channelA": "",
+        "channelB": "",
+        "decimals": 0,
+        "animations": "reactive",
+        "shape": "3",
+        "colorschema": "fixed",
+        "textoptions": "custom",
+        "colorText": "#eeeeee",
+        "fontLabel": "",
+        "fontValue": "1.2",
+        "fontSmall": "1",
+        "colorFromTheme": true,
+        "textAnimations": false,
+        "hideValue": true,
+        "tickmode": "off",
+        "peakmode": true,
+        "peaktime": "1000",
+        "x": 1010,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "8830e952.331ec8",
+        "type": "ui_text",
+        "z": "9bd1b4ef.461b08",
+        "group": "b6e499de.626a18",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "name": "Level",
+        "label": "",
+        "format": "<font size = 5 color = {{msg.color}}> {{msg.payload}} ",
+        "layout": "col-center",
+        "x": 1010,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "c0279e79.7a66d",
+        "type": "ui_group",
+        "z": "",
+        "name": "Radio Control",
+        "tab": "4376b620.d845c8",
+        "order": 1,
+        "disp": true,
+        "width": "9",
+        "collapse": false
+    },
+    {
+        "id": "b6e499de.626a18",
+        "type": "ui_group",
+        "z": "",
+        "name": "Meter",
+        "tab": "d707ba28.eeea28",
+        "order": 6,
+        "disp": false,
+        "width": "3",
+        "collapse": false
+    },
+    {
+        "id": "4376b620.d845c8",
+        "type": "ui_tab",
+        "z": "",
+        "name": "Radio",
+        "icon": "dashboard",
+        "order": 10,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "d707ba28.eeea28",
+        "type": "ui_tab",
+        "z": "",
+        "name": "Antenna Switch",
+        "icon": "dashboard",
+        "order": 1
+    }
+]
